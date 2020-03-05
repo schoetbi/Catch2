@@ -1,9 +1,9 @@
 /*
  *  Catch v2.11.1
- *  Generated: 2019-12-28 21:22:11.930976
+ *  Generated: 2020-03-06 10:25:08.351352
  *  ----------------------------------------------------------
  *  This file has been merged from multiple headers. Please don't edit it directly
- *  Copyright (c) 2019 Two Blue Cubes Ltd. All rights reserved.
+ *  Copyright (c) 2020 Two Blue Cubes Ltd. All rights reserved.
  *
  *  Distributed under the Boost Software License, Version 1.0. (See accompanying
  *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -6889,6 +6889,7 @@ namespace Catch {
 #include <cmath>
 #include <utility>
 #include <cstddef>
+#include <random>
 
 namespace Catch {
     namespace Benchmark {
@@ -9665,8 +9666,7 @@ namespace Catch {
                         if( !startsWith( line, '"' ) )
                             line = '"' + line + '"';
                         config.testsOrTags.push_back( line );
-                        config.testsOrTags.push_back( "," );
-
+                        config.testsOrTags.emplace_back( "," );
                     }
                 }
                 //Remove comma in the end
@@ -9829,7 +9829,7 @@ namespace Catch {
             | Opt( config.benchmarkNoAnalysis )
                 ["--benchmark-no-analysis"]
                 ( "perform only measurements; do not perform any analysis" )
-			| Arg( config.testsOrTags, "test name|pattern|tags" )
+            | Arg( config.testsOrTags, "test name|pattern|tags" )
                 ( "which test or tests to use" );
 
         return cli;
@@ -9980,7 +9980,7 @@ namespace Catch {
         };
 
         struct NoColourImpl : IColourImpl {
-            void use( Colour::Code ) {}
+            void use( Colour::Code ) override {}
 
             static IColourImpl* instance() {
                 static NoColourImpl s_instance;
@@ -10153,13 +10153,13 @@ namespace Catch {
 namespace Catch {
 
     Colour::Colour( Code _colourCode ) { use( _colourCode ); }
-    Colour::Colour( Colour&& rhs ) noexcept {
-        m_moved = rhs.m_moved;
-        rhs.m_moved = true;
+    Colour::Colour( Colour&& other ) noexcept {
+        m_moved = other.m_moved;
+        other.m_moved = true;
     }
-    Colour& Colour::operator=( Colour&& rhs ) noexcept {
-        m_moved = rhs.m_moved;
-        rhs.m_moved  = true;
+    Colour& Colour::operator=( Colour&& other ) noexcept {
+        m_moved = other.m_moved;
+        other.m_moved  = true;
         return *this;
     }
 
@@ -10171,7 +10171,7 @@ namespace Catch {
         // However, under some conditions it does happen (see #1626),
         // and this change is small enough that we can let practicality
         // triumph over purity in this case.
-        if (impl != NULL) {
+        if (impl != nullptr) {
             impl->use( _colourCode );
         }
     }
@@ -10524,7 +10524,7 @@ namespace Catch {
             assert( valueNames.size() == values.size() );
             std::size_t i = 0;
             for( auto value : values )
-                enumInfo->m_values.push_back({ value, valueNames[i++] });
+                enumInfo->m_values.emplace_back(value, valueNames[i++]);
 
             return enumInfo;
         }
@@ -11096,15 +11096,28 @@ namespace Catch {
 #include <limits>
 #include <algorithm>
 #include <iomanip>
+#include <fstream>
+#include <iostream>
 
 namespace Catch {
 
     std::size_t listTests( Config const& config ) {
+        auto outFile = config.getFilename();
+        std::streambuf *buf;
+        std::ofstream outFileStream;
+        if (!outFile.empty()){
+            outFileStream.open(outFile);
+            buf = outFileStream.rdbuf();
+        } else {
+          buf = Catch::cout().rdbuf();
+        }
+        std::ostream out(buf);
+
         TestSpec testSpec = config.testSpec();
         if( config.hasTestFilters() )
-            Catch::cout() << "Matching test cases:\n";
+            out << "Matching test cases:\n";
         else {
-            Catch::cout() << "All available test cases:\n";
+            out << "All available test cases:\n";
         }
 
         auto matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
@@ -11114,22 +11127,22 @@ namespace Catch {
                 : Colour::None;
             Colour colourGuard( colour );
 
-            Catch::cout() << Column( testCaseInfo.name ).initialIndent( 2 ).indent( 4 ) << "\n";
+            out << Column( testCaseInfo.name ).initialIndent( 2 ).indent( 4 ) << "\n";
             if( config.verbosity() >= Verbosity::High ) {
-                Catch::cout() << Column( Catch::Detail::stringify( testCaseInfo.lineInfo ) ).indent(4) << std::endl;
+                out << Column( Catch::Detail::stringify( testCaseInfo.lineInfo ) ).indent(4) << std::endl;
                 std::string description = testCaseInfo.description;
                 if( description.empty() )
                     description = "(NO DESCRIPTION)";
-                Catch::cout() << Column( description ).indent(4) << std::endl;
+                out << Column( description ).indent(4) << std::endl;
             }
             if( !testCaseInfo.tags.empty() )
-                Catch::cout() << Column( testCaseInfo.tagsAsString() ).indent( 6 ) << "\n";
+                out << Column( testCaseInfo.tagsAsString() ).indent( 6 ) << "\n";
         }
 
         if( !config.hasTestFilters() )
-            Catch::cout() << pluralise( matchedTestCases.size(), "test case" ) << '\n' << std::endl;
+            out << pluralise( matchedTestCases.size(), "test case" ) << '\n' << std::endl;
         else
-            Catch::cout() << pluralise( matchedTestCases.size(), "matching test case" ) << '\n' << std::endl;
+            out << pluralise( matchedTestCases.size(), "matching test case" ) << '\n' << std::endl;
         return matchedTestCases.size();
     }
 
@@ -11137,16 +11150,29 @@ namespace Catch {
         TestSpec testSpec = config.testSpec();
         std::size_t matchedTests = 0;
         std::vector<TestCase> matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
+        auto outFile = config.getFilename();
+        std::streambuf *buf;
+        std::ofstream outFileStream;
+
+        if (!outFile.empty()){
+            outFileStream.open(outFile);
+            buf = outFileStream.rdbuf();
+        } else {
+          buf = Catch::cout().rdbuf();
+        }
+        std::ostream out(buf);
         for( auto const& testCaseInfo : matchedTestCases ) {
             matchedTests++;
+
             if( startsWith( testCaseInfo.name, '#' ) )
-               Catch::cout() << '"' << testCaseInfo.name << '"';
+              out << '"' << testCaseInfo.name << '"';
             else
-               Catch::cout() << testCaseInfo.name;
+               out << testCaseInfo.name;
             if ( config.verbosity() >= Verbosity::High )
-                Catch::cout() << "\t@" << testCaseInfo.lineInfo;
-            Catch::cout() << std::endl;
+                out << "\t@" << testCaseInfo.lineInfo;
+            out << '\n';
         }
+        out.flush();
         return matchedTests;
     }
 
@@ -11772,7 +11798,7 @@ namespace Catch {
                 pos = skipq(pos, c);
                 break;
             case ',':
-                if (start != pos && openings.size() == 0) {
+                if (start != pos && openings.empty()) {
                     m_messages.emplace_back(macroName, lineInfo, resultType);
                     m_messages.back().message = static_cast<std::string>(trimmed(start, pos));
                     m_messages.back().message += " := ";
@@ -11780,7 +11806,7 @@ namespace Catch {
                 }
             }
         }
-        assert(openings.size() == 0 && "Mismatched openings");
+        assert(openings.empty() && "Mismatched openings");
         m_messages.emplace_back(macroName, lineInfo, resultType);
         m_messages.back().message = static_cast<std::string>(trimmed(start, names.size() - 1));
         m_messages.back().message += " := ";
@@ -13268,11 +13294,11 @@ namespace Catch {
         char **utf8Argv = new char *[ argc ];
 
         for ( int i = 0; i < argc; ++i ) {
-            int bufSize = WideCharToMultiByte( CP_UTF8, 0, argv[i], -1, NULL, 0, NULL, NULL );
+            int bufSize = WideCharToMultiByte( CP_UTF8, 0, argv[i], -1, nullptr, 0, nullptr, nullptr );
 
             utf8Argv[ i ] = new char[ bufSize ];
 
-            WideCharToMultiByte( CP_UTF8, 0, argv[i], -1, utf8Argv[i], bufSize, NULL, NULL );
+            WideCharToMultiByte( CP_UTF8, 0, argv[i], -1, utf8Argv[i], bufSize, nullptr, nullptr );
         }
 
         int returnCode = applyCommandLine( argc, utf8Argv );
@@ -13871,7 +13897,7 @@ namespace Catch {
             }
         }
         if( isHidden ) {
-            tags.push_back( "." );
+            tags.emplace_back( "." );
         }
 
         TestCaseInfo info( static_cast<std::string>(nameAndTags.name), _className, desc, tags, _lineInfo );
@@ -14282,8 +14308,8 @@ namespace TestCaseTracking {
     void SectionTracker::addInitialFilters( std::vector<std::string> const& filters ) {
         if( !filters.empty() ) {
             m_filters.reserve( m_filters.size() + filters.size() + 2 );
-            m_filters.push_back(""); // Root - should never be consulted
-            m_filters.push_back(""); // Test Case - not a section filter
+            m_filters.emplace_back(""); // Root - should never be consulted
+            m_filters.emplace_back(""); // Test Case - not a section filter
             m_filters.insert( m_filters.end(), filters.begin(), filters.end() );
         }
     }
@@ -15118,8 +15144,6 @@ namespace Catch {
 #include <iomanip>
 #include <type_traits>
 
-using uchar = unsigned char;
-
 namespace Catch {
 
 namespace {
@@ -15192,7 +15216,7 @@ namespace {
         // (see: http://www.w3.org/TR/xml/#syntax)
 
         for( std::size_t idx = 0; idx < m_str.size(); ++ idx ) {
-            uchar c = m_str[idx];
+            unsigned char c = m_str[idx];
             switch (c) {
             case '<':   os << "&lt;"; break;
             case '&':   os << "&amp;"; break;
@@ -15252,7 +15276,7 @@ namespace {
                 bool valid = true;
                 uint32_t value = headerValue(c);
                 for (std::size_t n = 1; n < encBytes; ++n) {
-                    uchar nc = m_str[idx + n];
+                    unsigned char nc = m_str[idx + n];
                     valid &= ((nc & 0xC0) == 0x80);
                     value = (value << 6) | (nc & 0x3F);
                 }
@@ -16681,11 +16705,7 @@ namespace Catch {
                     elementName = "error";
                     break;
                 case ResultWas::ExplicitFailure:
-                    elementName = "failure";
-                    break;
                 case ResultWas::ExpressionFailed:
-                    elementName = "failure";
-                    break;
                 case ResultWas::DidntThrowException:
                     elementName = "failure";
                     break;

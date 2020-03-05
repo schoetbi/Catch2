@@ -24,15 +24,28 @@
 #include <limits>
 #include <algorithm>
 #include <iomanip>
+#include <fstream>
+#include <iostream>
 
 namespace Catch {
 
     std::size_t listTests( Config const& config ) {
+        auto outFile = config.getFilename();
+        std::streambuf *buf;
+        std::ofstream outFileStream;
+        if (!outFile.empty()){
+            outFileStream.open(outFile);
+            buf = outFileStream.rdbuf();
+        } else {
+          buf = Catch::cout().rdbuf();
+        }
+        std::ostream out(buf);
+
         TestSpec testSpec = config.testSpec();
         if( config.hasTestFilters() )
-            Catch::cout() << "Matching test cases:\n";
+            out << "Matching test cases:\n";
         else {
-            Catch::cout() << "All available test cases:\n";
+            out << "All available test cases:\n";
         }
 
         auto matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
@@ -42,22 +55,22 @@ namespace Catch {
                 : Colour::None;
             Colour colourGuard( colour );
 
-            Catch::cout() << Column( testCaseInfo.name ).initialIndent( 2 ).indent( 4 ) << "\n";
+            out << Column( testCaseInfo.name ).initialIndent( 2 ).indent( 4 ) << "\n";
             if( config.verbosity() >= Verbosity::High ) {
-                Catch::cout() << Column( Catch::Detail::stringify( testCaseInfo.lineInfo ) ).indent(4) << std::endl;
+                out << Column( Catch::Detail::stringify( testCaseInfo.lineInfo ) ).indent(4) << std::endl;
                 std::string description = testCaseInfo.description;
                 if( description.empty() )
                     description = "(NO DESCRIPTION)";
-                Catch::cout() << Column( description ).indent(4) << std::endl;
+                out << Column( description ).indent(4) << std::endl;
             }
             if( !testCaseInfo.tags.empty() )
-                Catch::cout() << Column( testCaseInfo.tagsAsString() ).indent( 6 ) << "\n";
+                out << Column( testCaseInfo.tagsAsString() ).indent( 6 ) << "\n";
         }
 
         if( !config.hasTestFilters() )
-            Catch::cout() << pluralise( matchedTestCases.size(), "test case" ) << '\n' << std::endl;
+            out << pluralise( matchedTestCases.size(), "test case" ) << '\n' << std::endl;
         else
-            Catch::cout() << pluralise( matchedTestCases.size(), "matching test case" ) << '\n' << std::endl;
+            out << pluralise( matchedTestCases.size(), "matching test case" ) << '\n' << std::endl;
         return matchedTestCases.size();
     }
 
@@ -65,16 +78,29 @@ namespace Catch {
         TestSpec testSpec = config.testSpec();
         std::size_t matchedTests = 0;
         std::vector<TestCase> matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
+        auto outFile = config.getFilename();
+        std::streambuf *buf;
+        std::ofstream outFileStream;
+        
+        if (!outFile.empty()){
+            outFileStream.open(outFile);
+            buf = outFileStream.rdbuf();
+        } else {
+          buf = Catch::cout().rdbuf();
+        }
+        std::ostream out(buf);
         for( auto const& testCaseInfo : matchedTestCases ) {
             matchedTests++;
+
             if( startsWith( testCaseInfo.name, '#' ) )
-               Catch::cout() << '"' << testCaseInfo.name << '"';
+              out << '"' << testCaseInfo.name << '"';
             else
-               Catch::cout() << testCaseInfo.name;
+               out << testCaseInfo.name;
             if ( config.verbosity() >= Verbosity::High )
-                Catch::cout() << "\t@" << testCaseInfo.lineInfo;
-            Catch::cout() << std::endl;
+                out << "\t@" << testCaseInfo.lineInfo;
+            out << '\n';
         }
+        out.flush();
         return matchedTests;
     }
 
