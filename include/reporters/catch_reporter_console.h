@@ -47,7 +47,7 @@ namespace Catch {
         void benchmarkEnded(BenchmarkStats<> const& stats) override;
         void benchmarkFailed(std::string const& error) override;
 #endif // CATCH_CONFIG_ENABLE_BENCHMARKING
-
+        void testCaseStarting(TestCaseInfo const& testInfo) override;
         void testCaseEnded(TestCaseStats const& _testCaseStats) override;
         void testGroupEnded(TestGroupStats const& _testGroupStats) override;
         void testRunEnded(TestRunStats const& _testRunStats) override;

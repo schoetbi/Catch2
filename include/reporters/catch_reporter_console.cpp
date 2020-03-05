@@ -479,6 +479,11 @@ void ConsoleReporter::benchmarkFailed(std::string const& error) {
 }
 #endif // CATCH_CONFIG_ENABLE_BENCHMARKING
 
+void ConsoleReporter::testCaseStarting(TestCaseInfo const& testInfo) {
+    stream << "Start Test " << testInfo.name << std::endl;
+    StreamingReporterBase::testCaseStarting(testInfo);
+}
+
 void ConsoleReporter::testCaseEnded(TestCaseStats const& _testCaseStats) {
     m_tablePrinter->close();
     StreamingReporterBase::testCaseEnded(_testCaseStats);
