@@ -1,6 +1,6 @@
 /*
  *  Catch v2.11.1
- *  Generated: 2020-03-06 10:25:08.351352
+ *  Generated: 2020-03-06 11:03:26.383536
  *  ----------------------------------------------------------
  *  This file has been merged from multiple headers. Please don't edit it directly
  *  Copyright (c) 2020 Two Blue Cubes Ltd. All rights reserved.
@@ -11083,6 +11083,24 @@ namespace Catch {
 
     Option<std::size_t> list( std::shared_ptr<Config> const& config );
 
+    struct OutStreamHolder {
+        std::streambuf *buf;
+        OutStreamHolder(std::string const& path) {
+            if (!path.empty()) {
+                outFileStream = std::make_shared<std::ofstream>(path);
+                buf = outFileStream->rdbuf();
+            } else {
+                buf = Catch::cout().rdbuf();
+            }
+            outStream = std::make_shared<std::ostream>(buf);
+        }
+        std::shared_ptr<std::ofstream> outFileStream;
+        std::shared_ptr<std::ostream> outStream;
+        std::ostream &Out(){ return *outStream; }
+    };
+
+    OutStreamHolder getOutStream( Config const& config );
+
 } // end namespace Catch
 
 // end catch_list.h
@@ -11101,18 +11119,14 @@ namespace Catch {
 
 namespace Catch {
 
-    std::size_t listTests( Config const& config ) {
+    OutStreamHolder getOutStream( Config const& config) {
         auto outFile = config.getFilename();
-        std::streambuf *buf;
-        std::ofstream outFileStream;
-        if (!outFile.empty()){
-            outFileStream.open(outFile);
-            buf = outFileStream.rdbuf();
-        } else {
-          buf = Catch::cout().rdbuf();
-        }
-        std::ostream out(buf);
+        return OutStreamHolder(outFile);
+    }
 
+    std::size_t listTests( Config const& config ) {
+        auto stream_holder = getOutStream(config);
+        auto &out = stream_holder.Out();
         TestSpec testSpec = config.testSpec();
         if( config.hasTestFilters() )
             out << "Matching test cases:\n";
@@ -11150,17 +11164,8 @@ namespace Catch {
         TestSpec testSpec = config.testSpec();
         std::size_t matchedTests = 0;
         std::vector<TestCase> matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
-        auto outFile = config.getFilename();
-        std::streambuf *buf;
-        std::ofstream outFileStream;
-
-        if (!outFile.empty()){
-            outFileStream.open(outFile);
-            buf = outFileStream.rdbuf();
-        } else {
-          buf = Catch::cout().rdbuf();
-        }
-        std::ostream out(buf);
+        auto stream_holder = getOutStream(config);
+        auto &out = stream_holder.Out();
         for( auto const& testCaseInfo : matchedTestCases ) {
             matchedTests++;
 

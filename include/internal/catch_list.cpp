@@ -29,18 +29,14 @@
 
 namespace Catch {
 
-    std::size_t listTests( Config const& config ) {
+    OutStreamHolder getOutStream( Config const& config) {
         auto outFile = config.getFilename();
-        std::streambuf *buf;
-        std::ofstream outFileStream;
-        if (!outFile.empty()){
-            outFileStream.open(outFile);
-            buf = outFileStream.rdbuf();
-        } else {
-          buf = Catch::cout().rdbuf();
-        }
-        std::ostream out(buf);
+        return OutStreamHolder(outFile);
+    }
 
+    std::size_t listTests( Config const& config ) {
+        auto stream_holder = getOutStream(config);
+        auto &out = stream_holder.Out();
         TestSpec testSpec = config.testSpec();
         if( config.hasTestFilters() )
             out << "Matching test cases:\n";
@@ -78,17 +74,8 @@ namespace Catch {
         TestSpec testSpec = config.testSpec();
         std::size_t matchedTests = 0;
         std::vector<TestCase> matchedTestCases = filterTests( getAllTestCasesSorted( config ), testSpec, config );
-        auto outFile = config.getFilename();
-        std::streambuf *buf;
-        std::ofstream outFileStream;
-        
-        if (!outFile.empty()){
-            outFileStream.open(outFile);
-            buf = outFileStream.rdbuf();
-        } else {
-          buf = Catch::cout().rdbuf();
-        }
-        std::ostream out(buf);
+        auto stream_holder = getOutStream(config);
+        auto &out = stream_holder.Out();
         for( auto const& testCaseInfo : matchedTestCases ) {
             matchedTests++;
 

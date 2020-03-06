@@ -33,6 +33,24 @@ namespace Catch {
     
     Option<std::size_t> list( std::shared_ptr<Config> const& config );
 
+    struct OutStreamHolder {
+        std::streambuf *buf;
+        OutStreamHolder(std::string const& path) { 
+            if (!path.empty()) {
+                outFileStream = std::make_shared<std::ofstream>(path);
+                buf = outFileStream->rdbuf();
+            } else {
+                buf = Catch::cout().rdbuf();
+            }
+            outStream = std::make_shared<std::ostream>(buf);
+        }
+        std::shared_ptr<std::ofstream> outFileStream;
+        std::shared_ptr<std::ostream> outStream;
+        std::ostream &Out(){ return *outStream; }
+    };
+
+    OutStreamHolder getOutStream( Config const& config );
+
 } // end namespace Catch
 
 #endif // TWOBLUECUBES_CATCH_LIST_H_INCLUDED
