@@ -12,6 +12,8 @@
 #include "catch_config.hpp"
 
 #include <set>
+#include <iostream>
+#include <fstream>
 
 namespace Catch {
 
@@ -34,19 +36,25 @@ namespace Catch {
     Option<std::size_t> list( std::shared_ptr<Config> const& config );
 
     struct OutStreamHolder {
-        std::streambuf *buf;
-        OutStreamHolder(std::string const& path) { 
-            if (!path.empty()) {
-                outFileStream = std::make_shared<std::ofstream>(path);
-                buf = outFileStream->rdbuf();
-            } else {
+        explicit OutStreamHolder(std::string const &path) {
+            if ( !path.empty() ) {
+                outFileBuf = std::make_shared<std::filebuf>();
+                outFileBuf->open(path, std::ios::out);
+                buf = outFileBuf.get();
+            }
+            else {
                 buf = Catch::cout().rdbuf();
             }
             outStream = std::make_shared<std::ostream>(buf);
         }
-        std::shared_ptr<std::ofstream> outFileStream;
+
+        ~OutStreamHolder() {}
+
+        std::ostream &Out() { return *outStream; }
+
+        std::streambuf *buf;
+        std::shared_ptr<std::filebuf> outFileBuf;
         std::shared_ptr<std::ostream> outStream;
-        std::ostream &Out(){ return *outStream; }
     };
 
     OutStreamHolder getOutStream( Config const& config );

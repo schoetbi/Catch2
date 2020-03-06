@@ -24,8 +24,6 @@
 #include <limits>
 #include <algorithm>
 #include <iomanip>
-#include <fstream>
-#include <iostream>
 
 namespace Catch {
 
